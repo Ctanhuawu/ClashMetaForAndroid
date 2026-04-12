@@ -12,6 +12,7 @@ import com.github.kr328.clash.design.R
 import com.github.kr328.clash.remote.Remote
 import com.github.kr328.clash.util.withProfile
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -116,12 +117,16 @@ internal suspend fun Context.scheduleCoreRestart(
         Remote.service.unbind()
         Remote.service.bind()
 
-        val reboundRemote = Remote.service.remote.get()
-        reboundRemote.clash().queryCoreVersion()
+        withTimeout(SERVICE_RECONNECT_TIMEOUT) {
+            val reboundRemote = Remote.service.remote.get()
+            reboundRemote.clash().queryCoreVersion()
+        }
     } finally {
         Remote.service.coreSwitchInProgress = false
     }
 }
+
+private const val SERVICE_RECONNECT_TIMEOUT = 15_000L
 
 internal fun AppCompatActivity.reloadProgramPages() {
     packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->

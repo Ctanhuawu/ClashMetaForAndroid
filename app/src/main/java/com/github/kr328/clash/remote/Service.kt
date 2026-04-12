@@ -50,7 +50,12 @@ class Service(private val context: Application, val crashed: () -> Unit) {
 
     fun bind() {
         try {
-            context.bindService(RemoteService::class.intent, connection, Context.BIND_AUTO_CREATE)
+            val bound = context.bindService(RemoteService::class.intent, connection, Context.BIND_AUTO_CREATE)
+            if (!bound) {
+                Log.e("Failed to bind RemoteService")
+                unbind()
+                crashed()
+            }
         } catch (e: Exception) {
             unbind()
 
