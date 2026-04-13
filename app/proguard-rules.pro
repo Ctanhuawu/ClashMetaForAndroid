@@ -57,3 +57,8 @@
     boolean getDEBUG() return false;
     boolean getRECOVER_STACK_TRACES() return false;
 }
+
+# SnakeYAML may reference desktop JavaBeans introspection APIs that do not
+# exist on Android. Current usage only processes YAML maps/lists, so these
+# optional classes can be ignored for release shrinking.
+-dontwarn java.beans.**
