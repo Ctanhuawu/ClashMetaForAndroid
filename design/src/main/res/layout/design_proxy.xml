@@ -5,6 +5,11 @@
         <variable
             name="self"
             type="com.github.kr328.clash.design.ProxyDesign" />
+        <variable
+            name="embedded"
+            type="Boolean" />
+
+        <import type="android.view.View" />
     </data>
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout

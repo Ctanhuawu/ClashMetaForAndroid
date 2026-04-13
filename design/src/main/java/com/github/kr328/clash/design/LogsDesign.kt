@@ -12,7 +12,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
-class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
+class LogsDesign(context: Context, embedded: Boolean = false) : Design<LogsDesign.Request>(context) {
     sealed class Request {
         object StartLogcat : Request()
         object DeleteAll : Request()
@@ -49,6 +49,11 @@ class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
 
     init {
         binding.self = this
+        binding.embedded = embedded
+
+        if (!embedded) {
+            binding.activityBarLayout.applyFrom(context)
+        }
 
         binding.recyclerList.applyLinearAdapter(context, adapter)
     }

@@ -3,9 +3,11 @@ package com.github.kr328.clash
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.design.AppSettingsDesign
 import com.github.kr328.clash.design.ExpandedSettingsDesign
+import com.github.kr328.clash.design.LogsDesign
 import com.github.kr328.clash.design.MetaFeatureSettingsDesign
 import com.github.kr328.clash.design.NetworkSettingsDesign
 import com.github.kr328.clash.design.OverrideSettingsDesign
+import com.github.kr328.clash.design.model.LogFile
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.util.ApplicationObserver
 
@@ -20,6 +22,9 @@ class ExpandedSettingsPane(
         private set
 
     lateinit var networkDesign: NetworkSettingsDesign
+        private set
+
+    lateinit var logsDesign: LogsDesign
         private set
 
     lateinit var overrideDesign: OverrideSettingsDesign
@@ -99,6 +104,10 @@ class ExpandedSettingsPane(
             running,
             embedded = true,
         )
+        logsDesign = LogsDesign(
+            activity,
+            embedded = true,
+        )
         overrideDesign = OverrideSettingsDesign(
             activity,
             configuration,
@@ -123,6 +132,10 @@ class ExpandedSettingsPane(
                 design.showSection(section, showReset = false)
                 design.showDetail(networkDesign)
             }
+            ExpandedSettingsDesign.Section.Logs -> {
+                design.showSection(section, showReset = false)
+                design.showDetail(logsDesign)
+            }
             ExpandedSettingsDesign.Section.Override -> {
                 design.showSection(section, showReset = true)
                 design.showDetail(overrideDesign)
@@ -132,6 +145,14 @@ class ExpandedSettingsPane(
                 design.showDetail(metaFeatureDesign)
             }
         }
+    }
+
+    suspend fun refreshLogs(logs: List<LogFile>) {
+        logsDesign.patchLogs(logs)
+    }
+
+    fun isShowingLogs(): Boolean {
+        return currentSection == ExpandedSettingsDesign.Section.Logs
     }
 
     private suspend fun handleReset() {

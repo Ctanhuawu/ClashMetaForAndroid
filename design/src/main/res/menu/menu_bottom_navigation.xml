@@ -5,9 +5,9 @@
         android:icon="@drawable/ic_baseline_home"
         android:title="@string/main_interface" />
     <item
-        android:id="@+id/navigation_logs"
-        android:icon="@drawable/ic_baseline_assignment"
-        android:title="@string/logs" />
+        android:id="@+id/navigation_proxy"
+        android:icon="@drawable/ic_baseline_apps"
+        android:title="@string/proxy" />
     <item
         android:id="@+id/navigation_settings"
         android:icon="@drawable/ic_baseline_settings"

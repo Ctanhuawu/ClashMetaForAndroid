@@ -35,7 +35,6 @@ class LogsActivity : BaseActivity<LogsDesign>() {
                     when (it) {
                         LogsDesign.Request.StartLogcat -> {
                             startActivity(LogcatActivity::class.intent)
-                            finish()
                         }
                         LogsDesign.Request.DeleteAll -> {
                             if (design.requestDeleteAll()) {

@@ -3,6 +3,8 @@ package com.github.kr328.clash.design
 import android.content.Context
 import android.content.res.ColorStateList
 import android.view.View
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.viewpager2.widget.ViewPager2
 import com.github.kr328.clash.core.model.Proxy
@@ -15,6 +17,7 @@ import com.github.kr328.clash.design.databinding.DesignProxyBinding
 import com.github.kr328.clash.design.model.ProxyState
 import com.github.kr328.clash.design.store.UiStore
 import com.github.kr328.clash.design.util.applyFrom
+import com.github.kr328.clash.design.util.getPixels
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.resolveThemedColor
 import com.github.kr328.clash.design.util.root
@@ -27,6 +30,7 @@ class ProxyDesign(
     overrideMode: TunnelState.Mode?,
     groupNames: List<String>,
     uiStore: UiStore,
+    embedded: Boolean = false,
 ) : Design<ProxyDesign.Request>(context) {
     sealed class Request {
         object ReloadAll : Request()
@@ -91,8 +95,17 @@ class ProxyDesign(
 
     init {
         binding.self = this
+        binding.embedded = embedded
 
-        binding.activityBarLayout.applyFrom(context)
+        if (embedded) {
+            binding.activityBarLayout.findViewById<ImageView>(R.id.activity_bar_close_view)?.visibility = View.GONE
+            binding.activityBarLayout.findViewById<TextView>(R.id.activity_bar_title_view)?.apply {
+                setText(R.string.proxy)
+                setPaddingRelative(context.getPixels(R.dimen.item_header_margin), paddingTop, paddingEnd, paddingBottom)
+            }
+        } else {
+            binding.activityBarLayout.applyFrom(context)
+        }
 
         binding.menuView.setOnClickListener {
             menu.show()

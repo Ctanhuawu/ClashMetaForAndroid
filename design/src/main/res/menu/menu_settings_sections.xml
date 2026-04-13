@@ -9,6 +9,10 @@
         android:icon="@drawable/ic_baseline_dns"
         android:title="@string/network" />
     <item
+        android:id="@+id/navigation_settings_logs"
+        android:icon="@drawable/ic_outline_article"
+        android:title="@string/logs" />
+    <item
         android:id="@+id/navigation_settings_override"
         android:icon="@drawable/ic_baseline_extension"
         android:title="@string/override" />

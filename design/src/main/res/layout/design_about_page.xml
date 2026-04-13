@@ -15,48 +15,21 @@
         android:paddingStart="@{self.surface.insets.start}"
         android:paddingEnd="@{self.surface.insets.end}">
 
-        <LinearLayout
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:clipToPadding="false"
+            android:paddingTop="@{(float) self.surface.insets.top + @dimen/main_padding_top_extra + @dimen/toolbar_height}"
+            android:paddingBottom="@{self.surface.insets.bottom}" />
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="@dimen/toolbar_height"
-                android:paddingTop="@{(float) self.surface.insets.top + @dimen/main_padding_top_extra}"
-                android:paddingBottom="8dp">
+        <com.github.kr328.clash.design.view.ActivityBarLayout
+            android:id="@+id/activity_bar_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="@{(float) self.surface.insets.top + @dimen/main_padding_top_extra}">
 
-                <TextView
-                    android:id="@+id/about_title_view"
-                    android:layout_width="wrap_content"
-                    android:layout_height="@dimen/toolbar_height"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:layout_marginStart="@dimen/item_header_margin"
-                    android:layout_marginEnd="@dimen/item_tailing_margin"
-                    android:layout_toStartOf="@id/about_header_spacer"
-                    android:ellipsize="end"
-                    android:gravity="center_vertical"
-                    android:maxLines="1"
-                    android:text="@string/about"
-                    android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
-
-                <View
-                    android:id="@+id/about_header_spacer"
-                    android:layout_width="@dimen/item_tailing_component_size"
-                    android:layout_height="@dimen/item_tailing_component_size"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:layout_margin="@dimen/item_tailing_margin" />
-            </RelativeLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recycler_list"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:paddingBottom="@{self.surface.insets.bottom}" />
-        </LinearLayout>
+            <include layout="@layout/common_activity_bar" />
+        </com.github.kr328.clash.design.view.ActivityBarLayout>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 </layout>

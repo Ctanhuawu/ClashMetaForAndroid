@@ -16,8 +16,10 @@ import com.github.kr328.clash.common.util.setFileName
 import com.github.kr328.clash.common.util.ticker
 import com.github.kr328.clash.design.Design
 import com.github.kr328.clash.design.AboutDesign
+import com.github.kr328.clash.design.ExpandedSettingsDesign
 import com.github.kr328.clash.design.LogsDesign
 import com.github.kr328.clash.design.MainDesign
+import com.github.kr328.clash.design.ProxyDesign
 import com.github.kr328.clash.design.SettingsDesign
 import com.github.kr328.clash.design.model.LogFile
 import com.github.kr328.clash.design.ui.ToastDuration
@@ -30,8 +32,8 @@ import com.github.kr328.clash.core.bridge.*
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -40,27 +42,38 @@ import com.github.kr328.clash.design.R
 class MainActivity : BaseActivity<Design<*>>() {
     private enum class Page {
         Main,
-        Logs,
+        Proxy,
         Settings,
         About,
     }
 
     override suspend fun main() {
         val mainDesign = MainDesign(this)
-        val logsDesign = LogsDesign(this)
         val aboutDesign = AboutDesign(this)
+        var proxyPane: ProxyPane? = null
         val expandedSettingsPane = if (isExpandedSettingsWidth()) ExpandedSettingsPane(this, clashRunning) else null
         val settingsDesign = if (expandedSettingsPane == null) SettingsDesign(this) else null
         val expandedSettingsDesign: Design<*>? = expandedSettingsPane?.initialize()
         val host = layoutInflater.inflate(R.layout.activity_main_host, null, false)
         val container = host.findViewById<ViewGroup>(R.id.design_content_container)
         val bottomNavigation = host.findViewById<BottomNavigationView>(R.id.main_bottom_navigation)
+        val pageRequests = Channel<Page>(Channel.UNLIMITED)
         var currentPage = Page.Main
-        var requestedPage: Page? = null
-        var handlingPageRequest = false
 
         defer {
             expandedSettingsPane?.save()
+        }
+
+        suspend fun requireProxyPane(): ProxyPane {
+            val current = proxyPane
+            if (current != null) {
+                return current
+            }
+
+            val pane = ProxyPane(this@MainActivity, embedded = true)
+            pane.initialize()
+            proxyPane = pane
+            return pane
         }
 
         suspend fun show(page: Page) {
@@ -68,22 +81,25 @@ class MainActivity : BaseActivity<Design<*>>() {
                 expandedSettingsPane?.save()
             }
 
-            currentPage = page
-
             when (page) {
                 Page.Main -> {
                     setContentDesign(mainDesign)
                     bottomNavigation.selectedItemId = R.id.navigation_main
                     mainDesign.fetch()
                 }
-                Page.Logs -> {
-                    setContentDesign(logsDesign)
-                    bottomNavigation.selectedItemId = R.id.navigation_logs
-                    logsDesign.patchLogs(loadFiles())
+                Page.Proxy -> {
+                    val pane = requireProxyPane()
+                    pane.refresh()
+                    setContentDesign(pane.design)
+                    bottomNavigation.selectedItemId = R.id.navigation_proxy
                 }
                 Page.Settings -> {
                     setContentDesign(expandedSettingsDesign ?: settingsDesign!!)
                     bottomNavigation.selectedItemId = R.id.navigation_settings
+
+                    if (expandedSettingsPane?.isShowingLogs() == true) {
+                        expandedSettingsPane.refreshLogs(loadFiles())
+                    }
                 }
                 Page.About -> {
                     setContentDesign(aboutDesign)
@@ -113,29 +129,8 @@ class MainActivity : BaseActivity<Design<*>>() {
                     )
                 }
             }
-        }
 
-        fun requestShow(page: Page) {
-            requestedPage = page
-
-            if (handlingPageRequest) return
-
-            launch {
-                handlingPageRequest = true
-
-                try {
-                    while (true) {
-                        val next = requestedPage ?: break
-                        requestedPage = null
-
-                        if (currentPage != next) {
-                            show(next)
-                        }
-                    }
-                } finally {
-                    handlingPageRequest = false
-                }
-            }
+            currentPage = page
         }
 
         setActivityContent(host, container)
@@ -149,25 +144,25 @@ class MainActivity : BaseActivity<Design<*>>() {
             when (it.itemId) {
                 R.id.navigation_main -> {
                     if (currentPage != Page.Main) {
-                        requestShow(Page.Main)
+                        pageRequests.trySend(Page.Main)
                     }
                     true
                 }
-                R.id.navigation_logs -> {
-                    if (currentPage != Page.Logs) {
-                        requestShow(Page.Logs)
+                R.id.navigation_proxy -> {
+                    if (currentPage != Page.Proxy) {
+                        pageRequests.trySend(Page.Proxy)
                     }
                     true
                 }
                 R.id.navigation_settings -> {
                     if (currentPage != Page.Settings) {
-                        requestShow(Page.Settings)
+                        pageRequests.trySend(Page.Settings)
                     }
                     true
                 }
                 R.id.navigation_about -> {
                     if (currentPage != Page.About) {
-                        requestShow(Page.About)
+                        pageRequests.trySend(Page.About)
                     }
                     true
                 }
@@ -186,15 +181,42 @@ class MainActivity : BaseActivity<Design<*>>() {
                         Event.ActivityStart -> {
                             when (currentPage) {
                                 Page.Main -> mainDesign.fetch()
-                                Page.Logs -> logsDesign.patchLogs(loadFiles())
-                                Page.Settings, Page.About -> Unit
+                                Page.Proxy -> Unit
+                                Page.Settings -> {
+                                    if (expandedSettingsPane?.isShowingLogs() == true) {
+                                        expandedSettingsPane.refreshLogs(loadFiles())
+                                    }
+                                }
+                                Page.About -> Unit
                             }
                         }
                         Event.ServiceRecreated,
                         Event.ClashStop, Event.ClashStart,
                         Event.ProfileLoaded, Event.ProfileChanged ->
-                            if (currentPage == Page.Main) mainDesign.fetch()
+                            when (currentPage) {
+                                Page.Main -> mainDesign.fetch()
+                                Page.Proxy -> {
+                                    if (proxyPane?.handleEvent(it) == true) {
+                                        setContentDesign(proxyPane!!.design)
+                                    }
+                                }
+                                else -> {
+                                    if (it == Event.ServiceRecreated ||
+                                        it == Event.ClashStop ||
+                                        it == Event.ClashStart ||
+                                        it == Event.ProfileLoaded ||
+                                        it == Event.ProfileChanged
+                                    ) {
+                                        proxyPane?.handleEvent(it)
+                                    }
+                                }
+                            }
                         else -> Unit
+                    }
+                }
+                pageRequests.onReceive {
+                    if (currentPage != it) {
+                        show(it)
                     }
                 }
                 mainDesign.requests.onReceive {
@@ -206,18 +228,18 @@ class MainActivity : BaseActivity<Design<*>>() {
                                 mainDesign.startClash()
                         }
                         MainDesign.Request.OpenProxy ->
-                            startActivity(ProxyActivity::class.intent)
+                            pageRequests.trySend(Page.Proxy)
                         MainDesign.Request.OpenProfiles ->
                             startActivity(ProfilesActivity::class.intent)
                         MainDesign.Request.OpenProviders ->
                             startActivity(ProvidersActivity::class.intent)
                         MainDesign.Request.OpenLogs -> {
-                            show(Page.Logs)
+                            startActivity(LogsActivity::class.intent)
                         }
                         MainDesign.Request.OpenHelp ->
                             startActivity(HelpActivity::class.intent)
                         MainDesign.Request.OpenAbout ->
-                            show(Page.About)
+                            pageRequests.trySend(Page.About)
                     }
                 }
                 aboutDesign.requests.onReceive {
@@ -228,22 +250,12 @@ class MainActivity : BaseActivity<Design<*>>() {
                             startActivity(Intent(Intent.ACTION_VIEW).setData(Uri.parse(getString(R.string.meta_github_url))))
                     }
                 }
-                logsDesign.requests.onReceive {
-                    when (it) {
-                        LogsDesign.Request.StartLogcat -> {
-                            startActivity(LogcatActivity::class.intent)
-                        }
-                        LogsDesign.Request.DeleteAll -> {
-                            if (logsDesign.requestDeleteAll()) {
-                                withContext(Dispatchers.IO) {
-                                    deleteAllLogs()
-                                }
-
-                                logsDesign.patchLogs(emptyList())
+                if (proxyPane != null) {
+                    proxyPane!!.design.requests.onReceive {
+                        if (proxyPane!!.handleRequest(it)) {
+                            if (currentPage == Page.Proxy) {
+                                setContentDesign(proxyPane!!.design)
                             }
-                        }
-                        is LogsDesign.Request.OpenFile -> {
-                            startActivity(LogcatActivity::class.intent.setFileName(it.file.fileName))
                         }
                     }
                 }
@@ -254,6 +266,8 @@ class MainActivity : BaseActivity<Design<*>>() {
                                 startActivity(AppSettingsActivity::class.intent)
                             SettingsDesign.Request.StartNetwork ->
                                 startActivity(NetworkSettingsActivity::class.intent)
+                            SettingsDesign.Request.StartLogs ->
+                                startActivity(LogsActivity::class.intent)
                             SettingsDesign.Request.StartOverride ->
                                 startActivity(OverrideSettingsActivity::class.intent)
                             SettingsDesign.Request.StartMetaFeature ->
@@ -261,9 +275,18 @@ class MainActivity : BaseActivity<Design<*>>() {
                         }
                     }
                 } else {
-                    expandedSettingsPane.design.requests.onReceive { expandedSettingsPane.handleExpandedRequest(it) }
+                    expandedSettingsPane.design.requests.onReceive {
+                        expandedSettingsPane.handleExpandedRequest(it)
+
+                        if (it is ExpandedSettingsDesign.Request.SelectSection &&
+                            it.section == ExpandedSettingsDesign.Section.Logs
+                        ) {
+                            expandedSettingsPane.refreshLogs(loadFiles())
+                        }
+                    }
                     expandedSettingsPane.appDesign.requests.onReceive { expandedSettingsPane.handleAppRequest(it) }
                     expandedSettingsPane.networkDesign.requests.onReceive { expandedSettingsPane.handleNetworkRequest(it) }
+                    expandedSettingsPane.logsDesign.requests.onReceive { handleLogsRequest(expandedSettingsPane.logsDesign, it) }
                     expandedSettingsPane.overrideDesign.requests.onReceive { expandedSettingsPane.handleOverrideRequest(it) }
                     expandedSettingsPane.metaFeatureDesign.requests.onReceive { expandedSettingsPane.handleMetaFeatureRequest(it) }
                 }
@@ -344,6 +367,26 @@ class MainActivity : BaseActivity<Design<*>>() {
 
     private fun deleteAllLogs() {
         logsDir.deleteRecursively()
+    }
+
+    private suspend fun handleLogsRequest(design: LogsDesign, request: LogsDesign.Request) {
+        when (request) {
+            LogsDesign.Request.StartLogcat -> {
+                startActivity(LogcatActivity::class.intent)
+            }
+            LogsDesign.Request.DeleteAll -> {
+                if (design.requestDeleteAll()) {
+                    withContext(Dispatchers.IO) {
+                        deleteAllLogs()
+                    }
+
+                    design.patchLogs(emptyList())
+                }
+            }
+            is LogsDesign.Request.OpenFile -> {
+                startActivity(LogcatActivity::class.intent.setFileName(request.file.fileName))
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

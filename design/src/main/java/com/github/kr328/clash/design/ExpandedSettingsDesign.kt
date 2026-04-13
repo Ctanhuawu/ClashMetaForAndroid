@@ -13,6 +13,7 @@ class ExpandedSettingsDesign(context: Context) : Design<ExpandedSettingsDesign.R
     enum class Section(val menuId: Int, val titleRes: Int) {
         App(R.id.navigation_settings_app, R.string.app),
         Network(R.id.navigation_settings_network, R.string.network),
+        Logs(R.id.navigation_settings_logs, R.string.logs),
         Override(R.id.navigation_settings_override, R.string.override),
         MetaFeature(R.id.navigation_settings_meta_feature, R.string.meta_features),
     }
