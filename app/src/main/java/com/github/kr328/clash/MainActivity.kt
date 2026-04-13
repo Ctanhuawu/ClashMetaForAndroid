@@ -391,7 +391,10 @@ class MainActivity : BaseActivity<Design<*>>() {
 
     private suspend fun queryAppVersionName(): String {
         return withContext(Dispatchers.IO) {
-            packageManager.getPackageInfo(packageName, 0).versionName + "\n" + Bridge.nativeCoreVersion().replace("_", "-")
+            val appVersion = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+            val coreVersion = Bridge.nativeCoreVersion().replace("_", "-")
+
+            "App $appVersion\nNinjia Core $coreVersion"
         }
     }
 

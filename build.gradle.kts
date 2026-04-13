@@ -125,29 +125,9 @@ subprojects {
                     applicationIdSuffix = ".alpha"
                 }
             }
-
-            create("meta") {
-
-                dimension = flavorDimensionList[0]
-                if (!removeSuffix) {
-                    versionNameSuffix = ".Meta"
-                }
-
-                buildConfigField("boolean", "PREMIUM", "Boolean.parseBoolean(\"false\")")
-
-                resValue("string", "launch_name", "@string/launch_name_meta")
-                resValue("string", "application_name", "@string/application_name_meta")
-
-                if (isApp && !removeSuffix) {
-                    applicationIdSuffix = ".meta"
-                }
-            }
         }
 
         sourceSets {
-            getByName("meta") {
-                java.srcDirs("src/foss/java")
-            }
             getByName("alpha") {
                 java.srcDirs("src/foss/java")
             }

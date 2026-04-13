@@ -4,12 +4,16 @@
 
 ## 1. Native so 与 ABI
 
-- `app/src/main/jniLibs/`
+- `core/src/main/jniLibs/`
+  - 已迁移到 `core/src/main/jniLibs/`
   - 这里放的是 `Ninja` 的 `libbridge.so` 和 `libclash.so`
-  - 如果上游重新产出 native so，不要直接覆盖这两份
+  - 当前构建只吃这套预编译 so
 - `build.gradle.kts`
   - 这里限制了 ARM ABI，并让打包优先吃 `jniLibs`
   - 升级后如果上游改了 `ndk/abiFilters/packagingOptions`，要重新核对
+- `core/build.gradle.kts`
+  - 当前 `:core` 只保留 Kotlin/Java API，不再源码编译 native core
+  - 如果上游又把 Go/CMake 构建链带回来，不要直接恢复，除非明确要切回源码 core
 
 ## 2. JNI / Bridge 适配
 
@@ -68,7 +72,7 @@
 - 订阅 `User-Agent` 又变回 `ClashMetaForAndroid/...`
 - `ProfileProcessor` 被上游覆盖，导致远程订阅不再先下载再改写
 - `NinjaDecoder` 没有接回导入/更新流程
-- `jniLibs` 被新的构建产物覆盖
+- `jniLibs` 被新的构建逻辑覆盖，或者 APK 不再使用 `jniLibs` 里的预编译 so
 - 数据库 migration 被上游变更冲掉
 
 ## 7. 每次升级后的最小验证
@@ -90,9 +94,10 @@
 
 ## 8. Ninja 上游更新时的最小替换流程
 
-如果这次 `Ninja` 上游更新看起来只是核心更新，可以先按“只换 so”试一次，顺序如下：
+当前工程已经切到“预编译 so 驱动”模式。如果这次 `Ninja` 上游更新看起来只是核心更新，按“只换 so”处理即可，顺序如下：
 
 1. 替换 `app/src/main/jniLibs/` 里的：
+1. 替换 `core/src/main/jniLibs/` 里的：
    - `libbridge.so`
    - `libclash.so`
 2. 重新编译并安装 APK
@@ -115,8 +120,8 @@
    - 私有 `type: ninja` 的编码/解码规则是否发生变化
 
 一句话：
-- 默认先试“只换 `libbridge.so + libclash.so`”
-- 失败了再补 Kotlin 层适配
+- 当前默认就是“只换 `libbridge.so + libclash.so`”
+- 失败了再补 Kotlin 层适配，不要先恢复源码 core
 
 ## 9. Meta 上游更新时怎么处理
 
@@ -137,7 +142,7 @@
 ### Meta 上游更新后重点回看的文件
 
 - `build.gradle.kts`
-- `app/src/main/jniLibs/`
+- `core/src/main/jniLibs/`
 - `core/src/main/java/com/github/kr328/clash/core/bridge/Bridge.kt`
 - `core/src/main/java/com/github/kr328/clash/core/Clash.kt`
 - `service/src/main/java/com/github/kr328/clash/service/ProfileProcessor.kt`
