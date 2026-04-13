@@ -20,14 +20,16 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:paddingTop="@{(float) self.surface.insets.top + @dimen/main_padding_top_extra + @dimen/toolbar_height}"
+            android:paddingStart="@dimen/main_padding_horizontal"
+            android:paddingEnd="@dimen/main_padding_horizontal"
+            android:paddingTop="@{(float) self.surface.insets.top + @dimen/toolbar_height}"
             android:paddingBottom="@{self.surface.insets.bottom}" />
 
         <com.github.kr328.clash.design.view.ActivityBarLayout
             android:id="@+id/activity_bar_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingTop="@{(float) self.surface.insets.top + @dimen/main_padding_top_extra}">
+            android:paddingTop="@{self.surface.insets.top}">
 
             <include layout="@layout/common_activity_bar" />
         </com.github.kr328.clash.design.view.ActivityBarLayout>

@@ -5,7 +5,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams
 import androidx.annotation.DrawableRes
 import androidx.recyclerview.widget.RecyclerView
-import com.github.kr328.clash.design.view.ActionLabel
+import com.github.kr328.clash.design.view.LargeActionLabel
 
 class AboutItemAdapter(
     private val context: Context,
@@ -19,12 +19,12 @@ class AboutItemAdapter(
         val clickable: Boolean = true,
     )
 
-    class Holder(val label: ActionLabel) : RecyclerView.ViewHolder(label)
+    class Holder(val label: LargeActionLabel) : RecyclerView.ViewHolder(label)
 
     var items: List<AboutItem> = emptyList()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
-        return Holder(ActionLabel(context).apply {
+        return Holder(LargeActionLabel(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         })
     }

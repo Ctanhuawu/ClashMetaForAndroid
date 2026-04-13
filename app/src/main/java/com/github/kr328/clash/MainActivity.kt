@@ -34,6 +34,7 @@ import com.google.android.material.navigation.NavigationBarView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -59,6 +60,12 @@ class MainActivity : BaseActivity<Design<*>>() {
         val bottomNavigation = host.findViewById<BottomNavigationView>(R.id.main_bottom_navigation)
         val pageRequests = Channel<Page>(Channel.UNLIMITED)
         var currentPage = Page.Main
+        var suppressNavigationSelection = false
+        val packageVersionName by lazy {
+            packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+        }
+        var aboutVersionName: String? = null
+        var aboutVersionLoading = false
 
         defer {
             expandedSettingsPane?.save()
@@ -81,21 +88,29 @@ class MainActivity : BaseActivity<Design<*>>() {
                 expandedSettingsPane?.save()
             }
 
+            currentPage = page
+
             when (page) {
                 Page.Main -> {
                     setContentDesign(mainDesign)
+                    suppressNavigationSelection = true
                     bottomNavigation.selectedItemId = R.id.navigation_main
+                    suppressNavigationSelection = false
                     mainDesign.fetch()
                 }
                 Page.Proxy -> {
                     val pane = requireProxyPane()
                     pane.refresh()
                     setContentDesign(pane.design)
+                    suppressNavigationSelection = true
                     bottomNavigation.selectedItemId = R.id.navigation_proxy
+                    suppressNavigationSelection = false
                 }
                 Page.Settings -> {
                     setContentDesign(expandedSettingsDesign ?: settingsDesign!!)
+                    suppressNavigationSelection = true
                     bottomNavigation.selectedItemId = R.id.navigation_settings
+                    suppressNavigationSelection = false
 
                     if (expandedSettingsPane?.isShowingLogs() == true) {
                         expandedSettingsPane.refreshLogs(loadFiles())
@@ -103,34 +118,27 @@ class MainActivity : BaseActivity<Design<*>>() {
                 }
                 Page.About -> {
                     setContentDesign(aboutDesign)
+                    suppressNavigationSelection = true
                     bottomNavigation.selectedItemId = R.id.navigation_about
-                    aboutDesign.patchItems(
-                        listOf(
-                            com.github.kr328.clash.design.adapter.AboutItemAdapter.AboutItem(
-                                id = "version",
-                                icon = R.drawable.ic_clash,
-                                text = getString(R.string.application_name),
-                                subtext = queryAppVersionName(),
-                                clickable = false,
-                            ),
-                            com.github.kr328.clash.design.adapter.AboutItemAdapter.AboutItem(
-                                id = "help",
-                                icon = R.drawable.ic_baseline_help_center,
-                                text = getString(R.string.help),
-                                subtext = getString(R.string.tips_help_plain),
-                            ),
-                            com.github.kr328.clash.design.adapter.AboutItemAdapter.AboutItem(
-                                id = "source",
-                                icon = R.drawable.ic_baseline_info,
-                                text = getString(R.string.sources),
-                                subtext = getString(R.string.meta_github_url),
-                            ),
-                        )
-                    )
+                    suppressNavigationSelection = false
+                    aboutDesign.patchItems(buildAboutItems(aboutVersionName ?: packageVersionName))
+
+                    if (aboutVersionName == null && !aboutVersionLoading) {
+                        aboutVersionLoading = true
+
+                        launch {
+                            aboutVersionName = runCatching { queryAppVersionName() }
+                                .getOrDefault(packageVersionName)
+                            aboutVersionLoading = false
+
+                            if (currentPage == Page.About) {
+                                aboutDesign.patchItems(buildAboutItems(aboutVersionName!!))
+                            }
+                        }
+                    }
                 }
             }
 
-            currentPage = page
         }
 
         setActivityContent(host, container)
@@ -141,6 +149,10 @@ class MainActivity : BaseActivity<Design<*>>() {
             insets
         }
         bottomNavigation.setOnItemSelectedListener(NavigationBarView.OnItemSelectedListener {
+            if (suppressNavigationSelection) {
+                return@OnItemSelectedListener true
+            }
+
             when (it.itemId) {
                 R.id.navigation_main -> {
                     if (currentPage != Page.Main) {
@@ -297,6 +309,30 @@ class MainActivity : BaseActivity<Design<*>>() {
                 }
             }
         }
+    }
+
+    private fun buildAboutItems(versionName: String): List<com.github.kr328.clash.design.adapter.AboutItemAdapter.AboutItem> {
+        return listOf(
+            com.github.kr328.clash.design.adapter.AboutItemAdapter.AboutItem(
+                id = "version",
+                icon = R.drawable.ic_clash,
+                text = getString(R.string.application_name),
+                subtext = versionName,
+                clickable = false,
+            ),
+            com.github.kr328.clash.design.adapter.AboutItemAdapter.AboutItem(
+                id = "help",
+                icon = R.drawable.ic_baseline_help_center,
+                text = getString(R.string.help),
+                subtext = getString(R.string.tips_help_plain),
+            ),
+            com.github.kr328.clash.design.adapter.AboutItemAdapter.AboutItem(
+                id = "source",
+                icon = R.drawable.ic_baseline_info,
+                text = getString(R.string.sources),
+                subtext = getString(R.string.meta_github_url),
+            ),
+        )
     }
 
     private suspend fun MainDesign.fetch() {

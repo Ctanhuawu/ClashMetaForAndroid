@@ -22,13 +22,31 @@
             android:layout_marginEnd="@dimen/settings_split_gap"
             android:orientation="vertical">
 
-            <com.google.android.material.navigationrail.NavigationRailView
-                android:id="@+id/settings_sections_navigation"
+            <TextView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@android:color/transparent"
-                app:labelVisibilityMode="labeled"
-                app:menu="@menu/menu_settings_sections" />
+                android:layout_height="@dimen/toolbar_height"
+                android:layout_marginBottom="@dimen/settings_split_header_bottom_spacing"
+                android:gravity="center_vertical"
+                android:paddingStart="@dimen/main_padding_horizontal"
+                android:paddingEnd="@dimen/main_padding_horizontal"
+                android:text="@string/settings"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <com.google.android.material.navigationrail.NavigationRailView
+                    android:id="@+id/settings_sections_navigation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:background="@android:color/transparent"
+                    app:labelVisibilityMode="labeled"
+                    app:menuGravity="center"
+                    app:menu="@menu/menu_settings_sections" />
+            </FrameLayout>
         </LinearLayout>
 
         <LinearLayout
@@ -49,7 +67,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="@dimen/toolbar_height"
                     android:gravity="center_vertical"
-                    android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
 
                 <ImageView
                     android:id="@+id/settings_section_reset_view"
