@@ -5,13 +5,27 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   BuildPreRelease:
     runs-on: ubuntu-latest
+    environment: Release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - git_ref: main
+            asset_suffix: meta-core
+          - git_ref: ninjia-core
+            asset_suffix: ninjia-core
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
-      
+        with:
+          ref: ${{ matrix.git_ref }}
+
       - name: Checkout submodules
         run: git submodule update --init --recursive --force
 
@@ -24,72 +38,83 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
 
-      - name: Setup Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
-        with:
-          go-download-base-url: 'https://github.com/MetaCubeX/go/releases/download/build'
-          go-version: '1.26'
-
-      - name: Apply Patches
-        run: |
-          cd $(go env GOROOT)
-          for p in $GITHUB_WORKSPACE/.github/patch/*.patch; do patch --verbose -p 1 < "$p"; done
-
-      - uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Update CA
-        run: |
-          sudo apt-get update && sudo apt-get install ca-certificates
-          sudo update-ca-certificates
-          cp -f /etc/ssl/certs/ca-certificates.crt core/src/foss/golang/clash/component/ca/ca-certificates.crt
-
       - name: Signing properties
         env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          touch signing.properties
-          echo keystore.password="$SIGNING_STORE_PASSWORD" > signing.properties
-          echo key.alias="$SIGNING_KEY_ALIAS" >> signing.properties
-          echo key.password="$SIGNING_KEY_PASSWORD" >> signing.properties
-            
-          echo "cat signing.properties"
-          cat signing.properties
+          set -eu
+          test -n "$SIGNING_KEYSTORE_BASE64" || { echo "::error::Missing secret SIGNING_KEYSTORE_BASE64"; exit 1; }
+          test -n "$SIGNING_STORE_PASSWORD" || { echo "::error::Missing secret SIGNING_STORE_PASSWORD"; exit 1; }
+          test -n "$SIGNING_KEY_ALIAS" || { echo "::error::Missing secret SIGNING_KEY_ALIAS"; exit 1; }
+          test -n "$SIGNING_KEY_PASSWORD" || { echo "::error::Missing secret SIGNING_KEY_PASSWORD"; exit 1; }
+
+          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH" || { echo "::error::Decoded keystore is empty"; exit 1; }
+
+          {
+            echo "keystore.path=$KEYSTORE_PATH"
+            echo "keystore.password=$SIGNING_STORE_PASSWORD"
+            echo "key.alias=$SIGNING_KEY_ALIAS"
+            echo "key.password=$SIGNING_KEY_PASSWORD"
+          } > signing.properties
+
+          keytool -list \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$SIGNING_STORE_PASSWORD" \
+            -alias "$SIGNING_KEY_ALIAS" \
+            >/dev/null
 
       - name: Pre-release Build
-        if: success()
         run: ./gradlew --no-daemon app:assembleAlphaRelease
 
-      # Delete old Prerelease-alpha
+      - name: Collect branch artifacts
+        run: |
+          mkdir -p dist
+          shopt -s nullglob
+          for file in app/build/outputs/apk/alpha/release/*.apk
+          do
+            filename=$(basename "$file")
+            cp "$file" "dist/${filename%.apk}-${{ matrix.asset_suffix }}.apk"
+          done
+
+      - name: Upload branch artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prerelease-${{ matrix.asset_suffix }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+  PublishPreRelease:
+    needs: BuildPreRelease
+    runs-on: ubuntu-latest
+    environment: Release
+    steps:
+      - name: Download branch artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: prerelease-*
+          merge-multiple: true
+          path: dist
+
       - uses: dev-drprasad/delete-tag-and-release@v1.1
         with:
           tag_name: Prerelease-alpha
           github_token: ${{ secrets.GITHUB_TOKEN }}
           delete_release: true
 
-      - name: Tag Repo
-        uses: richardsimko/update-tag@v1
-        with:
-          tag_name: Prerelease-alpha
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload Alpha
         uses: softprops/action-gh-release@v2
-        if: ${{  success() }}
         with:
           tag_name: Prerelease-alpha
-          files: app/build/outputs/apk/alpha/release/*
+          target_commitish: main
+          files: dist/*.apk
           prerelease: true
           generate_release_notes: true
+          overwrite_files: true
 
       - name: Release Changelog Builder
         uses: mikepenz/release-changelog-builder-action@v4

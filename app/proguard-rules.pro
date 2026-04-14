@@ -32,6 +32,11 @@
     public static void checkNotNullParameter(...);
 }
 
+# SnakeYAML may reference desktop JavaBeans introspection APIs that do not
+# exist on Android. Current usage only processes YAML maps/lists, so these
+# optional classes can be ignored for release shrinking.
+-dontwarn java.beans.**
+
 # Kotlin Coroutine
 # Allow R8 to optimize away the FastServiceLoader.
 # Together with ServiceLoader optimization in R8
