@@ -2,6 +2,7 @@
 
 import com.android.build.gradle.AppExtension
 import com.android.build.gradle.BaseExtension
+import org.gradle.api.GradleException
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
@@ -44,6 +45,11 @@ subprojects {
             return null
         }
         return localProperties.getProperty(key)
+    }
+
+    fun Properties.requireSigningProperty(key: String): String {
+        return getProperty(key)?.takeIf { it.isNotBlank() }
+            ?: throw GradleException("Missing signing property '$key'. Check signing.properties or CI secrets.")
     }
 
     extensions.configure<BaseExtension> {
@@ -140,11 +146,18 @@ subprojects {
                     val prop = Properties().apply {
                         keystore.inputStream().use(this::load)
                     }
+                    val releaseKeystore = rootProject.file(
+                        prop.getProperty("keystore.path")?.takeIf { it.isNotBlank() } ?: "release.keystore"
+                    )
 
-                    storeFile = rootProject.file("release.keystore")
-                    storePassword = prop.getProperty("keystore.password")!!
-                    keyAlias = prop.getProperty("key.alias")!!
-                    keyPassword = prop.getProperty("key.password")!!
+                    if (!releaseKeystore.exists()) {
+                        throw GradleException("Missing keystore file at '${releaseKeystore.path}'.")
+                    }
+
+                    storeFile = releaseKeystore
+                    storePassword = prop.requireSigningProperty("keystore.password")
+                    keyAlias = prop.requireSigningProperty("key.alias")
+                    keyPassword = prop.requireSigningProperty("key.password")
                 }
             }
         }

@@ -49,11 +49,22 @@ Feature of [Clash.Meta](https://github.com/MetaCubeX/Clash.Meta)
    key.password=<key password>
    ```
 
+   Do not commit the keystore file into the repository.
+
 6. Build
 
    ```bash
    ./gradlew app:assembleAlphaRelease
    ```
+
+### GitHub Actions signing
+
+Configure these repository secrets for release builds:
+
+- `SIGNING_KEYSTORE_BASE64`: base64 content of your keystore file
+- `SIGNING_STORE_PASSWORD`
+- `SIGNING_KEY_ALIAS`
+- `SIGNING_KEY_PASSWORD`
 
 ### Automation
 
