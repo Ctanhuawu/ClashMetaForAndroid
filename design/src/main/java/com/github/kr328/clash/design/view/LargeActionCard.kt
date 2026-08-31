@@ -32,7 +32,21 @@ class LargeActionCard @JvmOverloads constructor(
     var icon: Drawable?
         get() = binding.iconView.background
         set(value) {
-            binding.iconView.background = value
+            binding.iconView.background = value?.mutate()?.apply {
+                if (contentColor != 0) {
+                    setTint(contentColor)
+                }
+            }
+        }
+
+    var contentColor: Int = 0
+        set(value) {
+            field = value
+            if (value != 0) {
+                binding.textView.setTextColor(value)
+                binding.subtextView.setTextColor(value)
+                binding.iconView.background?.mutate()?.setTint(value)
+            }
         }
 
     init {
@@ -49,6 +63,7 @@ class LargeActionCard @JvmOverloads constructor(
             0
         ).apply {
             try {
+                contentColor = getColor(R.styleable.LargeActionCard_contentColor, 0)
                 icon = getDrawable(R.styleable.LargeActionCard_icon)
                 text = getString(R.styleable.LargeActionCard_text)
                 subtext = getString(R.styleable.LargeActionCard_subtext)

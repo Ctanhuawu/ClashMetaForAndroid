@@ -53,7 +53,22 @@ class ProxyViewState(
             }
         } else {
             title = proxy.title
-            subtitle = proxy.subtitle
+            subtitle = when {
+                proxy.subtitle.equals("ninja", ignoreCase = true) ||
+                proxy.subtitle.equals("ninjia", ignoreCase = true) -> "Ninjia"
+
+                proxy.type == Proxy.Type.Ninjia -> "Ninjia"
+
+                proxy.subtitle.equals("Unknown", ignoreCase = true) || proxy.subtitle.isBlank() -> {
+                    if (proxy.type != Proxy.Type.Unknown) {
+                        proxy.type.name
+                    } else {
+                        "Ninjia"
+                    }
+                }
+
+                else -> proxy.subtitle
+            }
         }
 
         if (delay != proxy.delay) {
